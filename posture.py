@@ -2,12 +2,14 @@ import cv2
 import mediapipe as mp
 import math
 import time
-
-# -------------------- THRESHOLD VARIABLES --------------------
+import serial 
+ser = serial.Serial('/dev/tty.usbmodem2101', 115200, timeout=1)
+# --------------f------ THRESHOLD VARIABLES --------------------
 HEAD_THRESHOLD_OFFSET = 10       # pixels: if current head height exceeds baseline + this, head is bending
 BACK_BEND_THRESHOLD = 3         # degrees: acceptable trunk angle is within ±BACK_BEND_THRESHOLD of 180°
+TIMEOUT = 20                # seconds: if bad posture is detected for this long, send message
 # -------------------------------------------------------------
-
+bad_posture_start = None
 mp_pose = mp.solutions.pose  # type: ignore[attr-defined]
 mp_drawing = mp.solutions.drawing_utils  # type: ignore[attr-defined]
 
@@ -33,7 +35,7 @@ start_time = time.time()
 baseline_head_height = None
 
 with mp_pose.Pose(min_detection_confidence=0.5,
-                   min_tracking_confidence=0.5) as pose:
+                  min_tracking_confidence=0.5) as pose:
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -140,7 +142,18 @@ with mp_pose.Pose(min_detection_confidence=0.5,
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
             cv2.putText(image, head_info, (10, 150),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
-        
+            
+            # Check if overall posture is bad for 20 seconds straight and send message via serial.
+            if overall_posture == "Bad Posture":
+                if bad_posture_start is None:
+                    bad_posture_start = time.time()
+                elif time.time() - bad_posture_start >= TIMEOUT:
+                    ser.write(b"Bad posture for 20 seconds.\n")
+                    print("Sent: Bad posture for 20 seconds.") 
+                    bad_posture_start = time.time()   
+            else:
+                bad_posture_start = None
+
         cv2.imshow('Posture Detection', image)
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
