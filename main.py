@@ -7,6 +7,7 @@ from servo import Servo  # type: ignore
 import math
 import select
 
+
 # Debug flag for printing status (set to False for production)
 debug = True
 
@@ -32,6 +33,8 @@ HBm1_b = machine.Pin(27, machine.Pin.OUT)  # Motor 1 control pin B
 HBm1_a.value(1)
 HBm1_b.value(1)
 
+led = machine.Pin(9, machine.Pin.OUT)
+
 # ---------- Easing Functions ----------
 def easeInOutCubic(current_time, start_angle, end_angle, total_duration):
     t = current_time / total_duration
@@ -54,8 +57,8 @@ def easeInOutQuad(current_time, start_angle, end_angle, total_duration):
 def do_breath_cycle():
     global breath_enabled
     start_angle = true_zero_position - 10
-    end_angle = true_zero_position + 35
-    breath_duration = 2000
+    end_angle = true_zero_position + 45
+    breath_duration = 1000
     pause_duration = 500
     steps = 100
 
@@ -94,6 +97,17 @@ while True:
             breath_enabled = True
             if debug:
                 print("Breathing enabled; received:", line.strip())
+                led.value(1)
+                utime.sleep_ms(50)
+                led.value(0)
+                utime.sleep_ms(50)
+                led.value(1)
+                utime.sleep_ms(50)
+                led.value(0)
+                utime.sleep_ms(50)
+                led.value(1)
+                utime.sleep_ms(50)
+                led.value(0)
     else:
         if utime.ticks_diff(utime.ticks_ms(), last_print) > 5000:
             print("nothing sent")

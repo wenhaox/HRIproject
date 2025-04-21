@@ -3,13 +3,16 @@ import mediapipe as mp
 import math
 import time
 import serial 
-ser = serial.Serial('/dev/tty.usbmodem2101', 115200, timeout=1)
+from playsound import playsound  
+ser = serial.Serial('/dev/tty.usbmodem1301', 115200, timeout=1)
 # --------------f------ THRESHOLD VARIABLES --------------------
 HEAD_THRESHOLD_OFFSET = 10       # pixels: if current head height exceeds baseline + this, head is bending
 BACK_BEND_THRESHOLD = 3         # degrees: acceptable trunk angle is within ±BACK_BEND_THRESHOLD of 180°
-TIMEOUT = 20                # seconds: if bad posture is detected for this long, send message
+TIMEOUT = 5                # seconds: if bad posture is detected for this long, send message
+MESSAGE_INTERVAL = 6        # seconds: send the message every 6 seconds if posture remains bad
 # -------------------------------------------------------------
 bad_posture_start = None
+last_sent_bad_msg = None
 mp_pose = mp.solutions.pose  # type: ignore[attr-defined]
 mp_drawing = mp.solutions.drawing_utils  # type: ignore[attr-defined]
 
@@ -147,12 +150,17 @@ with mp_pose.Pose(min_detection_confidence=0.5,
             if overall_posture == "Bad Posture":
                 if bad_posture_start is None:
                     bad_posture_start = time.time()
+                    last_sent_bad_msg = bad_posture_start
                 elif time.time() - bad_posture_start >= TIMEOUT:
-                    ser.write(b"Bad posture for 20 seconds.\n")
-                    print("Sent: Bad posture for 20 seconds.") 
-                    bad_posture_start = time.time()   
+                    if last_sent_bad_msg is not None and time.time() - last_sent_bad_msg >= MESSAGE_INTERVAL:
+                        ser.write(b"Bad posture for 20 seconds.\n")
+                        print("Sent: Bad posture for 20 seconds.")
+                        # Play alert sound
+                        playsound("cute.mp3")
+                        last_sent_bad_msg = time.time()
             else:
                 bad_posture_start = None
+                last_sent_bad_msg = None
 
         cv2.imshow('Posture Detection', image)
         if cv2.waitKey(10) & 0xFF == ord('q'):
